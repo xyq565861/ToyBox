@@ -5,6 +5,7 @@ using Kingmaker;
 //using Kingmaker.Controllers.GlobalMap;
 using Kingmaker.RuleSystem;
 using Kingmaker.RuleSystem.Rules;
+using ModKit;
 //using Kingmaker.UI._ConsoleUI.Models;
 //using Kingmaker.UI.RestCamp;
 using System;
@@ -12,22 +13,21 @@ using System;
 using UnityModManager = UnityModManagerNet.UnityModManager;
 
 namespace ToyBox.BagOfPatches {
-    static class DiceRolls {
+    internal static class DiceRolls {
         public static Settings settings = Main.settings;
-        public static UnityModManager.ModEntry.ModLogger modLogger = ModKit.Logger.modLogger;
         public static Player player = Game.Instance.Player;
 
         [HarmonyPatch(typeof(RuleAttackRoll), "IsCriticalConfirmed", MethodType.Getter)]
-        static class HitPlayer_OnTriggerl_Patch {
-            static void Postfix(ref bool __result, RuleAttackRoll __instance) {
+        private static class HitPlayer_OnTriggerl_Patch {
+            private static void Postfix(ref bool __result, RuleAttackRoll __instance) {
                 if (__instance.IsHit && UnitEntityDataUtils.CheckUnitEntityData(__instance.Initiator, settings.allHitsCritical)) {
                     __result = true;
                 }
             }
         }
         [HarmonyPatch(typeof(RuleAttackRoll), "IsHit", MethodType.Getter)]
-        static class HitPlayer_OnTrigger2_Patch {
-            static void Postfix(ref bool __result, RuleAttackRoll __instance) {
+        private static class HitPlayer_OnTrigger2_Patch {
+            private static void Postfix(ref bool __result, RuleAttackRoll __instance) {
                 if (UnitEntityDataUtils.CheckUnitEntityData(__instance.Initiator, settings.allAttacksHit)) {
                     __result = true;
                 }
@@ -53,13 +53,13 @@ namespace ToyBox.BagOfPatches {
 
         [HarmonyPatch(typeof(RuleRollDice), "Roll")]
         public static class RuleRollDice_Roll_Patch {
-            static void Postfix(RuleRollDice __instance) {
+            private static void Postfix(RuleRollDice __instance) {
                 if (__instance.DiceFormula.Dice != DiceType.D20) return;
                 var initiator = __instance.Initiator;
-                int result = __instance.m_Result;
+                var result = __instance.m_Result;
                 //modLogger.Log($"initiator: {initiator.CharacterName} isInCombat: {initiator.IsInCombat} alwaysRole20OutOfCombat: {settings.alwaysRoll20OutOfCombat}");
-                //Main.Debug($"initiator: {initiator.CharacterName} Initial D20Roll: " + result);
-                if (    UnitEntityDataUtils.CheckUnitEntityData(initiator, settings.alwaysRoll20)
+                //Mod.Debug($"initiator: {initiator.CharacterName} Initial D20Roll: " + result);
+                if (UnitEntityDataUtils.CheckUnitEntityData(initiator, settings.alwaysRoll20)
                    || (UnitEntityDataUtils.CheckUnitEntityData(initiator, settings.alwaysRoll20OutOfCombat)
                            && !initiator.IsInCombat
                        )
@@ -76,30 +76,38 @@ namespace ToyBox.BagOfPatches {
                     else if (UnitEntityDataUtils.CheckUnitEntityData(initiator, settings.rollWithDisadvantage)) {
                         result = Math.Min(result, UnityEngine.Random.Range(1, 21));
                     }
-                    int min = 1;
+                    var min = 1;
                     if (UnitEntityDataUtils.CheckUnitEntityData(initiator, settings.neverRoll1) && result == 1) {
                         result = UnityEngine.Random.Range(2, 21);
                         min = 2;
+                    }
+                    if (UnitEntityDataUtils.CheckUnitEntityData(initiator, settings.take10always) && result < 10 && !initiator.IsInCombat) {
+                        result = 10;
+                        min = 10;
+                    }
+                    if (UnitEntityDataUtils.CheckUnitEntityData(initiator, settings.take10minimum) && result < 10 && !initiator.IsInCombat) {
+                        result = UnityEngine.Random.Range(10, 21);
+                        min = 10;
                     }
                     if (UnitEntityDataUtils.CheckUnitEntityData(initiator, settings.neverRoll20) && result == 20) {
                         result = UnityEngine.Random.Range(min, 20);
                     }
                 }
-                //Main.Debug("Modified D20Roll: " + result);
+                //Mod.Debug("Modified D20Roll: " + result);
                 __instance.m_Result = result;
             }
         }
 
         [HarmonyPatch(typeof(RuleInitiativeRoll), "Result", MethodType.Getter)]
         public static class RuleInitiativeRoll_OnTrigger_Patch {
-            static void Postfix(RuleInitiativeRoll __instance, ref int __result) {
+            private static void Postfix(RuleInitiativeRoll __instance, ref int __result) {
                 if (UnitEntityDataUtils.CheckUnitEntityData(__instance.Initiator, settings.roll1Initiative)) {
                     __result = 1 + __instance.Modifier;
-                    Main.Debug("Modified InitiativeRoll: " + __result);
+                    Mod.Trace("Modified InitiativeRoll: " + __result);
                 }
                 else if (UnitEntityDataUtils.CheckUnitEntityData(__instance.Initiator, settings.roll20Initiative)) {
                     __result = 20 + __instance.Modifier;
-                    Main.Debug("Modified InitiativeRoll: " + __result);
+                    Mod.Trace("Modified InitiativeRoll: " + __result);
                 }
             }
         }

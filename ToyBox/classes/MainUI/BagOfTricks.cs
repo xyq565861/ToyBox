@@ -5,291 +5,504 @@ using System.Linq;
 using Kingmaker;
 using Kingmaker.Cheats;
 using Kingmaker.Kingdom;
+using Kingmaker.PubSubSystem;
+using Kingmaker.UnitLogic;
 using Kingmaker.UnitLogic.Alignments;
+using Kingmaker.UI.Dialog;
 using ModKit;
+using UnityEngine;
+using UnityModManagerNet;
 using static ModKit.UI;
 
 namespace ToyBox {
     public static class BagOfTricks {
-        public static Settings settings { get { return Main.settings; } }
+        public static Settings settings => Main.settings;
 
         // cheats combat
-        const string RestAll = "Rest All";
-        const string Empowered = "Empowered";
-        const string FullBuffPlease = "Full Buff Please";
-        const string RemoveBuffs = "Remove Buffs";
-        const string RemoveDeathsDoor = "Remove Deaths Door";
-        const string KillAllEnemies = "Kill All Enemies";
-        const string SummonZoo = "Summon Zoo";
+        private const string RestAll = "Rest All";
+        private const string RestSelected = "Rest Selected";
+        private const string Empowered = "Empowered";
+        private const string FullBuffPlease = "Common Buffs";
+        private const string GoddesBuffs = "Buff Like A Godess";
+        private const string RemoveBuffs = "Remove Buffs";
+        private const string RemoveDeathsDoor = "Remove Deaths Door";
+        private const string KillAllEnemies = "Kill All Enemies";
+        //private const string SummonZoo = "Summon Zoo"
+        private const string LobotomizeAllEnemies = "Lobotomize Enemies";
 
         // cheats common
-        const string TeleportPartyToYou = "Teleport Party To You";
-        const string GoToGlobalMap = "Go To Global Map";
-        const string RerollPerception = "Reroll Perception";
-        const string ChangeParty = "Change Party";
+        private const string TeleportPartyToYou = "Teleport Party To You";
+        private const string GoToGlobalMap = "Go To Global Map";
+        private const string RerollPerception = "Reroll Perception";
+        private const string RerollInteractionSkillChecks = "Reset Interactables";
+        private const string ChangeParty = "Change Party";
+        private const string ChangWeather = "Change Weather";
+
+        // other
+        private const string TimeScaleMultToggle = "Main/Alt Timescale";
+        private const string PreviewDialogResults = "Preview Results";
+        private const string ResetAdditionalCameraAngles = "Fix Camera";
 
         public static void OnLoad() {
             // Combat
             KeyBindings.RegisterAction(RestAll, () => CheatsCombat.RestAll());
+            KeyBindings.RegisterAction(RestSelected, () => Cheats.RestSelected());
             KeyBindings.RegisterAction(Empowered, () => CheatsCombat.Empowered(""));
             KeyBindings.RegisterAction(FullBuffPlease, () => CheatsCombat.FullBuffPlease(""));
+            KeyBindings.RegisterAction(GoddesBuffs, () => CheatsCombat.Iddqd(""));
             KeyBindings.RegisterAction(RemoveBuffs, () => Actions.RemoveAllBuffs());
             KeyBindings.RegisterAction(RemoveDeathsDoor, () => CheatsCombat.DetachDebuff());
             KeyBindings.RegisterAction(KillAllEnemies, () => CheatsCombat.KillAll());
-            KeyBindings.RegisterAction(SummonZoo, () => CheatsCombat.SpawnInspectedEnemiesUnderCursor(""));
+            //KeyBindings.RegisterAction(SummonZoo, () => CheatsCombat.SpawnInspectedEnemiesUnderCursor(""));
+            KeyBindings.RegisterAction(LobotomizeAllEnemies, () => Actions.LobotomizeAllEnemies());
             // Common
             KeyBindings.RegisterAction(TeleportPartyToYou, () => Teleport.TeleportPartyToPlayer());
             KeyBindings.RegisterAction(GoToGlobalMap, () => Teleport.TeleportToGlobalMap());
             KeyBindings.RegisterAction(RerollPerception, () => Actions.RunPerceptionTriggers());
+            KeyBindings.RegisterAction(RerollInteractionSkillChecks, () => Actions.RerollInteractionSkillChecks());
             KeyBindings.RegisterAction(ChangeParty, () => { Actions.ChangeParty(); });
+            KeyBindings.RegisterAction(ChangWeather, () =>CheatsCommon.ChangeWeather(""));
+            // Other
+            KeyBindings.RegisterAction(TimeScaleMultToggle, () => {
+                settings.useAlternateTimeScaleMultiplier = !settings.useAlternateTimeScaleMultiplier;
+                Actions.ApplyTimeScale();
+            });
+            KeyBindings.RegisterAction(PreviewDialogResults, () => {
+                settings.previewDialogResults = !settings.previewDialogResults;
+                var dialogController = Game.Instance.DialogController;
+            });
+            KeyBindings.RegisterAction(ResetAdditionalCameraAngles, () => {
+                Main.resetExtraCameraAngles = true;
+            });
         }
         public static void ResetGUI() { }
         public static void OnGUI() {
+#if BUILD_CRUI
+            ActionButton("Demo crUI", () => ModKit.crUI.Demo());
+#endif
             if (Main.IsInGame) {
-                UI.BeginHorizontal();
-                UI.Space(25);
-                UI.Label("increment".cyan(), UI.AutoWidth());
-                var increment = UI.IntTextField(ref settings.increment, null, UI.Width(150));
-                UI.EndHorizontal();
+                BeginHorizontal();
+                Space(25);
+                Label("increment".cyan(), AutoWidth());
+                var increment = IntTextField(ref settings.increment, null, Width(150));
+                EndHorizontal();
                 var mainChar = Game.Instance.Player.MainCharacter.Value;
                 var kingdom = KingdomState.Instance;
-                UI.HStack("Resources", 1,
+                HStack("Resources", 1,
                     () => {
                         var money = Game.Instance.Player.Money;
-                        UI.Label("Gold".cyan(), UI.Width(150));
-                        UI.Label(money.ToString().orange().bold(), UI.Width(200));
-                        UI.ActionButton($"Gain {increment}", () => Game.Instance.Player.GainMoney(increment), UI.AutoWidth());
-                        UI.ActionButton($"Lose {increment}", () => {
+                        Label("Gold".cyan(), Width(150));
+                        Label(money.ToString().orange().bold(), Width(200));
+                        ActionButton($"Gain {increment}", () => Game.Instance.Player.GainMoney(increment), AutoWidth());
+                        ActionButton($"Lose {increment}", () => {
                             var loss = Math.Min(money, increment);
                             Game.Instance.Player.GainMoney(-loss);
-                        }, UI.AutoWidth());
+                        }, AutoWidth());
                     },
                     () => {
                         var exp = mainChar.Progression.Experience;
-                        UI.Label("Experience".cyan(), UI.Width(150));
-                        UI.Label(exp.ToString().orange().bold(), UI.Width(200));
-                        UI.ActionButton($"Gain {increment}", () => {
+                        Label("Experience".cyan(), Width(150));
+                        Label(exp.ToString().orange().bold(), Width(200));
+                        ActionButton($"Gain {increment}", () => {
                             Game.Instance.Player.GainPartyExperience(increment);
-                        }, UI.AutoWidth());
+                        }, AutoWidth());
                     });
             }
-            UI.Div(0, 25);
-            UI.HStack("Combat", 2,
-                () => UI.BindableActionButton(RestAll),
-                () => UI.BindableActionButton(Empowered),
-                () => UI.BindableActionButton(FullBuffPlease),
-                () => UI.BindableActionButton(RemoveBuffs),
-                () => UI.BindableActionButton(RemoveDeathsDoor),
-                () => UI.BindableActionButton(KillAllEnemies),
-                () => UI.BindableActionButton(SummonZoo),
+            Div(0, 25);
+            HStack("Combat", 2,
+                () => BindableActionButton(RestAll),
+                () => BindableActionButton(RestSelected),
+                () => BindableActionButton(FullBuffPlease),
+                () => BindableActionButton(Empowered),
+                () => BindableActionButton(GoddesBuffs),
+                () => BindableActionButton(RemoveBuffs),
+                () => BindableActionButton(RemoveDeathsDoor),
+                () => BindableActionButton(KillAllEnemies),
+                //() => UI.BindableActionButton(SummonZoo),
+                () => BindableActionButton(LobotomizeAllEnemies),
                 () => { }
                 );
-            UI.Div(0, 25);
-            UI.HStack("Common", 2,
-                () => UI.BindableActionButton(TeleportPartyToYou),
-                () => UI.BindableActionButton(GoToGlobalMap),
-                () => UI.BindableActionButton(RerollPerception),
-                () => UI.BindableActionButton(ChangeParty),
+            Div(0, 25);
+            HStack("Teleport", 2,
+                () => BindableActionButton(TeleportPartyToYou),
                 () => {
-                    UI.NonBindableActionButton("Set Perception to 40", () => {
+                    Toggle("Enable Teleport Keys", ref settings.toggleTeleportKeysEnabled);
+                    Space(100);
+                    if (settings.toggleTeleportKeysEnabled) {
+                        using (VerticalScope()) {
+                            KeyBindPicker("TeleportMain", "Main Character", 0, 200);
+                            KeyBindPicker("TeleportSelected", "Selected Chars", 0, 200);
+                            KeyBindPicker("TeleportParty", "Whole Party", 0, 200);
+                        }
+                    }
+                    UI.Space(25);
+                    UI.Label("You can enable hot keys to teleport members of your party to your mouse cursor on Area or the Global Map".green());
+                });
+            Div(0, 25);
+            HStack("Common", 2,
+                () => BindableActionButton(GoToGlobalMap),
+                () => BindableActionButton(ChangeParty),
+                () => BindableActionButton(RerollPerception),
+                () => {
+                    BindableActionButton(RerollInteractionSkillChecks);
+                    UI.Space(-75);
+                    UI.Label("This resets all the skill check rolls for all interactable objects in the area".green());
+                },
+                () => {
+                    NonBindableActionButton("Set Perception to 40", () => {
                         CheatsCommon.StatPerception();
                         Actions.RunPerceptionTriggers();
                     });
                 },
-                () => UI.NonBindableActionButton("Change Weather", () => CheatsCommon.ChangeWeather("")),
-                () => UI.NonBindableActionButton("Give All Items", () => CheatsUnlock.CreateAllItems("")),
-                () => UI.NonBindableActionButton("Identify All", () => Actions.IdentifyAll()),
+                () => BindableActionButton(ChangWeather),
+                () => NonBindableActionButton("Give All Items", () => CheatsUnlock.CreateAllItems("")),
+                () => NonBindableActionButton("Identify All", () => Actions.IdentifyAll()),
                 () => { }
                 );
-            UI.Div(0, 25);
-            UI.HStack("Preview", 0, () => {
-                UI.Toggle("Dialog Results", ref settings.previewDialogResults, 0);
-                UI.Space(25);
-                UI.Toggle("Dialog Alignment", ref settings.previewAlignmentRestrictedDialog, 0);
-                UI.Space(25);
-                UI.Toggle("Random Encounters", ref settings.previewRandomEncounters, 0);
-                UI.Space(25);
-                UI.Toggle("Events", ref settings.previewEventResults, 0);
+            Div(0, 25);
+            HStack("Preview", 0, () => {
+                Toggle("Dialog Results", ref settings.previewDialogResults);
+                Space(25);
+                Toggle("Dialog Alignment", ref settings.previewAlignmentRestrictedDialog);
+                Space(25);
+                Toggle("Random Encounters", ref settings.previewRandomEncounters);
+                Space(25);
+                Toggle("Events", ref settings.previewEventResults);
+                Space(25);
+                BindableActionButton(PreviewDialogResults);
             });
-            UI.Div(0, 25);
-            UI.HStack("Quality of Life", 1,
+            Div(0, 25);
+            HStack("Quality of Life", 1,
                 () => {
-                    UI.Toggle("Allow Achievements While Using Mods", ref settings.toggleAllowAchievementsDuringModdedGame, 0);
-                    UI.Label("This is intended for you to be able to enjoy the game while using mods that enhance your quality of life.  Please be mindful of the player community and avoid using this mod to trivialize earning prestige achievements like Sadistic Gamer. The author is in discussion with Owlcat about reducing the scope of achievement blocking to just these. Let's show them that we as players can mod and cheat responsibly.".orange());
-                },
-                () => UI.Toggle("Object Highlight Toggle Mode", ref settings.highlightObjectsToggle, 0),
-                () => UI.Toggle("Highlight Copyable Scrolls", ref settings.toggleHighlightCopyableScrolls, 0),
-                () => UI.Toggle("Spiders begone (experimental)", ref settings.toggleSpiderBegone, 0),
-                () => UI.Toggle("Make Tutorials Not Appear If Disabled In Settings", ref settings.toggleForceTutorialsToHonorSettings),
-                () => UI.Toggle("Refill consumables in belt slots if in inventory", ref settings.togglAutoEquipConsumables),
-                () => UI.Toggle("Auto Load Last Save On Launch", ref settings.toggleAutomaticallyLoadLastSave, 0),
-                () => UI.Toggle("Allow Shift Click To Use Items In Inventory", ref settings.toggleShiftClickToUseInventorySlot, 0),
-                () => {
-                    UI.Toggle("Enable Brutal Unfair Difficulty", ref settings.toggleBrutalUnfair, 0);
+                    Toggle("Allow Achievements While Using Mods", ref settings.toggleAllowAchievementsDuringModdedGame);
                     UI.Space(25);
-                    UI.Label("This may require an area transition or reload to take effect".green());
+                    Label("This is intended for you to be able to enjoy the game while using mods that enhance your quality of life.  Please be mindful of the player community and avoid using this mod to trivialize earning prestige achievements like Sadistic Gamer. The author is in discussion with Owlcat about reducing the scope of achievement blocking to just these. Let's show them that we as players can mod and cheat responsibly.".orange());
                 },
-                () => UI.Slider("Brutal Unfair Difficulty Multiplier", ref settings.brutalDifficultyMultiplier, 1f, 5f, 1f, 1, "", UI.Width((450))),
-                () => { }
-            );
-            UI.Div(0, 25);
-            UI.HStack("Alignment", 1,
-                () => { UI.Toggle("Fix Alignment Shifts", ref settings.toggleAlignmentFix, 0); UI.Space(119); UI.Label("Makes alignment shifts towards pure good/evil/lawful/chaotic only shift on those axes".green()); },
-                () => { UI.Toggle("Prevent Alignment Changes", ref settings.togglePreventAlignmentChanges, 0); UI.Space(25); UI.Label("See Party Editor for more fine grained alignment locking per character".green()); },
-                () => { }
-                );
-            UI.Div(0, 25);
-            UI.HStack("Cheats", 1,
+                () => Toggle("Object Highlight Toggle Mode", ref settings.highlightObjectsToggle),
+                () => Toggle("Highlight Copyable Scrolls", ref settings.toggleHighlightCopyableScrolls),
                 () => {
-                    UI.Toggle("Enable Teleport Keys", ref settings.toggleTeleportKeysEnabled, 0);
-                    if (settings.toggleTeleportKeysEnabled) {
-                        UI.Space(100);
-                        using (UI.VerticalScope()) {
-                            UI.KeyBindPicker("TeleportMain", "Main Character", 0, 200);
-                            UI.KeyBindPicker("TeleportSelected", "Selected Chars.", 0, 200);
-                            UI.KeyBindPicker("TeleportParty", "Whole Party", 0, 200);
+                    Toggle("♥♥ ".red() + "Love is Free".bold() + " ♥♥".red(), ref settings.toggleAllowAnyGenderRomance, 300.width());
+                    25.space();
+                    UI.Label("Allow ".green() + "any gender".color(RGBA.purple) + " " + "for any ".green() + "R".color(RGBA.red) + "o".orange() + "m".yellow() + "a".green() + "n".cyan() + "c".color(RGBA.rare) + "e".color(RGBA.purple));
+                },
+                () => {
+                    Toggle("Jealousy Begone!".bold(), ref settings.toggleMultipleRomance, 300.width());
+                    25.space();
+                    UI.Label("Allow ".green() + "multiple".color(RGBA.purple) + " romances at the same time".green());
+                },
+                () => {
+                    Toggle("Expand Dialog To Include Remote Companions".bold() , ref settings.toggleRemoteCompanionDialog);
+                    100.space();
+                    Label("Experimental".orange()+ " Allow remote companions to make comments on dialog you are having.".green());
+                },
+                () => {
+                    if (settings.toggleRemoteCompanionDialog) {
+                        50.space();
+                        Toggle("Include Former Companions", ref settings.toggleExCompanionDialog);
+                        25.space();
+                    }
+                },
+                () => { Toggle("Auto load Last Save on launch", ref settings.toggleAutomaticallyLoadLastSave); UI.Space(25); UI.Label("Hold down shift during launch to bypass".green()); },
+                () => Toggle("Make Spell/Ability/Item Pop-Ups Wider ", ref settings.toggleWidenActionBarGroups),
+                () => {
+                    if (Toggle("Show Acronyms in Spell/Ability/Item Pop-Ups", ref settings.toggleShowAcronymsInSpellAndActionSlots)) {
+                        Main.SetNeedsResetGameUI();
+                    }
+                },
+                () => {
+                    Toggle("Icky Stuff Begone!!!", ref settings.toggleReplaceModelMenu, UI.AutoWidth());
+                    if (settings.toggleReplaceModelMenu) {
+                        Space(25);
+                        using (VerticalScope(UI.Width(250))) {
+                            Toggle("Spiders Begone!", ref settings.toggleSpiderBegone);
+                            Toggle("Vescavors Begone!", ref settings.toggleVescavorsBegone);
+                            Toggle("Retrievers Begone!", ref settings.toggleRetrieversBegone);
+                        }
+                    }
+                    UI.Space(25);
+                    UI.Label("Some players find spiders and other swarms icky. This replaces them with something more pleasent".green());
+                },
+                () => Toggle("Make tutorials not appear if disabled in settings", ref settings.toggleForceTutorialsToHonorSettings),
+                () => Toggle("Refill consumables in belt slots if in inventory", ref settings.togglAutoEquipConsumables),
+                () => {
+                    var modifier = KeyBindings.GetBinding("InventoryUseModifier");
+                    var modifierText = modifier.Key == KeyCode.None ? "Modifer" : modifier.ToString();
+                    Toggle("Allow " + $"{modifierText} + Click".cyan() + " To Use Items In Inventory", ref settings.toggleShiftClickToUseInventorySlot);
+                    if (settings.toggleShiftClickToUseInventorySlot) {
+                        UI.Space(25);
+                        ModifierPicker("InventoryUseModifier", "", 0);
+                    }
+                },
+                () => {
+                    var modifier = KeyBindings.GetBinding("ClickToTransferModifier");
+                    var modifierText = modifier.Key == KeyCode.None ? "Modifer" : modifier.ToString();
+                    Toggle("Allow " + $"{modifierText} + Click".cyan() + " To Transfer Entire Stack", ref settings.toggleShiftClickToFastTransfer);
+                    if (settings.toggleShiftClickToFastTransfer) {
+                        UI.Space(25);
+                        ModifierPicker("ClickToTransferModifier", "", 0);
+                    }
+                },
+                () => Toggle("Respec Refund Scrolls", ref settings.toggleRespecRefundScrolls),
+                () => ActionButton("Fix Incorrect Main Character", () => {
+                    var probablyPlayer = Game.Instance.Player?.Party?
+                        .Where(x => !x.IsCustomCompanion())
+                        .Where(x => !x.IsStoryCompanion()).ToList();
+                    if (probablyPlayer is { Count: 1 }) {
+                        var newMainCharacter = probablyPlayer.First();
+                        Mod.Warn($"Promoting {newMainCharacter.CharacterName} to main character!");
+                        if (Game.Instance != null) Game.Instance.Player.MainCharacter = newMainCharacter;
+                    }
+                }, AutoWidth()),
+                () => {
+                    using (VerticalScope()) {
+                        Div(0, 25, 1280);
+                        var useAlt = settings.useAlternateTimeScaleMultiplier;
+                        var mainTimeScaleTitle = "Game Time Scale";
+                        if (useAlt) mainTimeScaleTitle = mainTimeScaleTitle.grey();
+                        var altTimeScaleTitle = "Alternate Time Scale";
+                        if (!useAlt) altTimeScaleTitle = altTimeScaleTitle.grey();
+                        using (HorizontalScope()) {
+                            LogSlider(mainTimeScaleTitle, ref settings.timeScaleMultiplier, 0f, 20, 1, 1, "", Width(450));
+                            Space(25);
+                            Label("Speeds up or slows down the entire game (movement, animation, everything)".green());
+                        }
+                        using (HorizontalScope()) {
+                            LogSlider(altTimeScaleTitle, ref settings.alternateTimeScaleMultiplier, 0f, 20, 5, 1, "", Width(450));
+                        }
+                        using (HorizontalScope()) {
+                            BindableActionButton(TimeScaleMultToggle);
+                            Space(-95);
+                            Label("Bindable hot key to swap between main and alternate time scale multipliers".green());
+                        }
+                        Div(0, 25, 1280);
+                    }
+                },
+                () => Slider("Turn Based Combat Delay", ref settings.turnBasedCombatStartDelay, 0f, 4f, 4f, 1, "", Width(450)),
+                () => {
+                    using (VerticalScope()) {
+
+                        using (HorizontalScope()) {
+                            using (VerticalScope()) {
+                                Div(0, 25, 1280);
+                                if (Toggle("Enable Brutal Unfair Difficulty", ref settings.toggleBrutalUnfair)) {
+                                    EventBus.RaiseEvent<IDifficultyChangedClassHandler>((Action<IDifficultyChangedClassHandler>)(h => {
+                                        h.HandleDifficultyChanged();
+                                        Main.SetNeedsResetGameUI();
+                                    }));
+                                }
+                                Space(15);
+                                Label("This allows you to play with the originally released Unfair difficulty. ".green() + "Note:".orange().bold() + "This Unfair difficulty was bugged and applied the intended difficulty modifers twice. ToyBox allows you to keep playing at this Brutal difficulty level and beyond.  Use the slider below to select your desired Brutality Level".green(), Width(1200));
+                                Space(15);
+                                using (HorizontalScope()) {
+                                    if (Slider("Brutality Level", ref settings.brutalDifficultyMultiplier, 1f, 8f, 2f, 1, "", Width(450))) {
+                                        EventBus.RaiseEvent<IDifficultyChangedClassHandler>((Action<IDifficultyChangedClassHandler>)(h => {
+                                            h.HandleDifficultyChanged();
+                                            Main.SetNeedsResetGameUI();
+                                        }));
+                                    }
+                                    Space(25);
+                                    var brutaltiy = settings.brutalDifficultyMultiplier;
+                                    string label;
+                                    var suffix = Math.Abs(brutaltiy - Math.Floor(brutaltiy)) <= float.Epsilon ? "" : "+";
+                                    switch (brutaltiy) {
+                                        case float level when level < 2.0:
+                                            label = $"Unfair{suffix}".Rarity(RarityType.Common);
+                                            break;
+                                        case float level when level < 3.0:
+                                            label = $"Brutal{suffix}";
+                                            break;
+                                        default:
+                                            var rarity = (RarityType)brutaltiy;
+                                            label = $"{rarity}{suffix}".Rarity(rarity);
+                                            break;
+                                    }
+                                    using (VerticalScope(AutoWidth())) {
+                                        Space(UnityModManager.UI.Scale(3));
+                                        Label(label.bold(), largeStyle, AutoWidth());
+                                    }
+                                }
+                                Space(-10);
+                            }
                         }
                     }
                 },
-                () => UI.Toggle("Infinite Abilities", ref settings.toggleInfiniteAbilities, 0),
-                () => UI.Toggle("Infinite Spell Casts", ref settings.toggleInfiniteSpellCasts, 0),
-                () => UI.Toggle("No Material Components", ref settings.toggleMaterialComponent, 0),
-                () => UI.Toggle("Disable Arcane Spell Failure", ref settings.toggleIgnoreSpellFailure, 0),
-                () => UI.Toggle("Disable Party Negative Levels", ref settings.togglePartyNegativeLevelImmunity, 0),
-                () => UI.Toggle("Disable Party Ability Damage", ref settings.togglePartyAbilityDamageImmunity, 0),
-
-                () => UI.Toggle("Unlimited Actions During Turn", ref settings.toggleUnlimitedActionsPerTurn, 0),
-                () => UI.Toggle("Infinite Charges On Items", ref settings.toggleInfiniteItems, 0),
-
-                () => UI.Toggle("Instant Cooldown", ref settings.toggleInstantCooldown, 0),
-
-                () => UI.Toggle("Spontaneous Caster Scroll Copy", ref settings.toggleSpontaneousCopyScrolls, 0),
-
-                () => UI.Toggle("Disable Equipment Restrictions", ref settings.toggleEquipmentRestrictions, 0),
-                () => UI.Toggle("Disable Armor Max Dexterity", ref settings.toggleIgnoreMaxDexterity, 0),
-
-                () => UI.Toggle("Disable Dialog Restrictions (Alignment)", ref settings.toggleDialogRestrictions, 0),
-                () => UI.Toggle("Disable Dialog Restrictions (Mythic Path)", ref settings.toggleDialogRestrictionsMythic, 0),
-#if DEBUG
-                () => UI.Toggle("Disable Dialog Restrictions (Everything, Experimental)", ref settings.toggleDialogRestrictionsEverything, 0),
-#endif
-                () => UI.Toggle("No Friendly Fire On AOEs", ref settings.toggleNoFriendlyFireForAOE, 0),
-                () => UI.Toggle("Free Meta-Magic", ref settings.toggleMetamagicIsFree, 0),
-
-                () => UI.Toggle("No Fog Of War", ref settings.toggleNoFogOfWar, 0),
-                () => UI.Toggle("Restore Spells & Skills After Combat", ref settings.toggleRestoreSpellsAbilitiesAfterCombat,0),
-                //() => UI.Toggle("Recharge Items After Combat", ref settings.toggleRechargeItemsAfterCombat, 0),
-                //() => UI.Toggle("Access Remote Characters", ref settings.toggleAccessRemoteCharacters,0),
-                //() => UI.Toggle("Show Pet Portraits", ref settings.toggleShowAllPartyPortraits,0),
-                () => UI.Toggle("Instant Rest After Combat", ref settings.toggleInstantRestAfterCombat, 0),
-                () => UI.Toggle("Disallow Companions Leaving Party (experimental; only enable while needed)", ref settings.toggleBlockUnrecruit, 0),
-                () => UI.Toggle("Disable Romance IsLocked Flag (experimental)", ref settings.toggleMultipleRomance, 0),
-                () => UI.Toggle("Instant change party members", ref settings.toggleInstantChangeParty),
-                () => UI.ToggleCallback("Equipment No Weight", ref settings.toggleEquipmentNoWeight, BagOfPatches.Tweaks.NoWeight_Patch1.Refresh),
-                () => UI.Toggle("Allow Item Use From Inventory During Combat", ref settings.toggleUseItemsDuringCombat),
-                () => UI.Toggle("Ignore Alignment Requirements for Abilities", ref settings.toggleIgnoreAbilityAlignmentRestriction),
-                () => UI.Toggle("Remove Level 20 Caster Level Cap", ref settings.toggleUncappedCasterLevel),
+            () => { }
+            );
+            Div(0, 25);
+            HStack("Camera", 1,
+                () => Toggle("Enable Zoom on all maps and cutscenes", ref settings.toggleZoomOnAllMaps),
+            () => {
+                Toggle("Enable Rotate on all maps and cutscenes", ref settings.toggleRotateOnAllMaps);
+                103.space();
+                UI.Label("Note:".orange() + " For cutscenes and some situations the rotation keys are disabled so you have to hold down Mouse3 to drag in order to get rotation".green(), 1280.width());
+            },
+            //() => Toggle("Enable Scrolling on all maps", ref settings.toggleScrollOnAllMaps),
+                () => {
+                    if (Toggle("Allow Mouse3 Drag to adjust Camera Tilt", ref settings.toggleCameraPitch)) { Main.resetExtraCameraAngles = true; }
+                    100.space();
+                    UI.Label("Experimental".orange() + " This allows you to adjust pitch (Camera Tilt) by holding down Mouse3 (which previously just rotated). This can mess with your camera but it is fun so enjoy.  The following bindable key allows you to fix the camera:".green(), 1280.width());
+                },
+                () => BindableActionButton(ResetAdditionalCameraAngles),
+            () => LogSlider("Field Of View", ref settings.fovMultiplier, 0.4f, 5.0f, 1, 2, "", AutoWidth()),
+                () => LogSlider("FoV (Cut Scenes)", ref settings.fovMultiplierCutScenes, 0.4f, 5.0f, 1, 2, "", AutoWidth()),
+                () => { }
+            );
+            Div(0, 25);
+            HStack("Alignment", 1,
+                () => { Toggle("Fix Alignment Shifts", ref settings.toggleAlignmentFix); Space(119); Label("Makes alignment shifts towards pure good/evil/lawful/chaotic only shift on those axes".green()); },
+                () => { Toggle("Prevent Alignment Changes", ref settings.togglePreventAlignmentChanges); Space(25); Label("See Party Editor for more fine grained alignment locking per character".green()); },
                 () => { }
                 );
-            UI.Div(153, 25);
-            UI.HStack("", 1,
-                () => UI.EnumGrid("Disable Attacks Of Opportunity", ref settings.noAttacksOfOpportunitySelection, 0, UI.AutoWidth()),
-                () => UI.EnumGrid("Can Move Through", ref settings.allowMovementThroughSelection, 0, UI.AutoWidth()),
-                () => { UI.Space(328); UI.Label("This allows characters you control to move through the selected category of units during combat".green(), UI.AutoWidth()); }
+            Div(0, 25);
+            HStack("Cheats", 1,
+                () => {
+                    using (HorizontalScope()) {
+                        ToggleCallback("Highlight Hidden Objects", ref settings.highlightHiddenObjects, Actions.UpdateHighlights);
+                        if (settings.highlightHiddenObjects) {
+                            Space(100);
+                            ToggleCallback("In Fog Of War ", ref settings.highlightHiddenObjectsInFog, Actions.UpdateHighlights);
+                        }
+                    }
+                },
+                () => Toggle("Infinite Abilities", ref settings.toggleInfiniteAbilities),
+                () => Toggle("Infinite Spell Casts", ref settings.toggleInfiniteSpellCasts),
+                () => Toggle("No Material Components", ref settings.toggleMaterialComponent),
+                () => Toggle("Disable Party Negative Levels", ref settings.togglePartyNegativeLevelImmunity),
+                () => Toggle("Disable Party Ability Damage", ref settings.togglePartyAbilityDamageImmunity),
+                () => Toggle("Disable Attacks of Opportunity", ref settings.toggleAttacksofOpportunity),
+                () => Toggle("Unlimited Actions During Turn", ref settings.toggleUnlimitedActionsPerTurn),
+                () => Toggle("Infinite Charges On Items", ref settings.toggleInfiniteItems),
+
+                () => Toggle("Instant Cooldown", ref settings.toggleInstantCooldown),
+
+                () => Toggle("Spontaneous Caster Scroll Copy", ref settings.toggleSpontaneousCopyScrolls),
+
+                () => Toggle("Disable Equipment Restrictions", ref settings.toggleEquipmentRestrictions),
+                () => Toggle("Disable Armor Max Dexterity", ref settings.toggleIgnoreMaxDexterity),
+                () => Toggle("Disable Armor Speed Reduction", ref settings.toggleIgnoreSpeedReduction),
+                () => Toggle("Disable Armor & Shield Arcane Spell Failure", ref settings.toggleIgnoreSpellFailure),
+                () => Toggle("Disable Armor & Shield Checks Penalty", ref settings.toggleIgnoreArmorChecksPenalty),
+
+                () => Toggle("Disable Dialog Restrictions (Alignment)", ref settings.toggleDialogRestrictions),
+                () => Toggle("Disable Dialog Restrictions (Mythic Path)", ref settings.toggleDialogRestrictionsMythic),
+#if DEBUG
+                () => Toggle("Disable Dialog Restrictions (Everything, Experimental)", ref settings.toggleDialogRestrictionsEverything),
+#endif
+                () => Toggle("No Friendly Fire On AOEs", ref settings.toggleNoFriendlyFireForAOE),
+                () => Toggle("Free Meta-Magic", ref settings.toggleMetamagicIsFree),
+
+                () => Toggle("No Fog Of War", ref settings.toggleNoFogOfWar),
+                () => Toggle("Restore Spells & Skills After Combat", ref settings.toggleRestoreSpellsAbilitiesAfterCombat),
+                //() => UI.Toggle("Recharge Items After Combat", ref settings.toggleRechargeItemsAfterCombat),
+                //() => UI.Toggle("Access Remote Characters", ref settings.toggleAccessRemoteCharacters,0),
+                //() => UI.Toggle("Show Pet Portraits", ref settings.toggleShowAllPartyPortraits,0),
+                () => Toggle("Instant Rest After Combat", ref settings.toggleInstantRestAfterCombat),
+                () => Toggle("Disallow Companions Leaving Party (experimental; only enable while needed)", ref settings.toggleBlockUnrecruit),
+                () => Toggle("Instant change party members", ref settings.toggleInstantChangeParty),
+                () => ToggleCallback("Equipment No Weight", ref settings.toggleEquipmentNoWeight, BagOfPatches.Tweaks.NoWeight_Patch1.Refresh),
+                () => Toggle("Allow Item Use From Inventory During Combat", ref settings.toggleUseItemsDuringCombat),
+                () => Toggle("Ignore Alignment Requirements for Abilities", ref settings.toggleIgnoreAbilityAlignmentRestriction),
+                () => Toggle("Remove Level 20 Caster Level Cap", ref settings.toggleUncappedCasterLevel),
+                () => { }
+                );
+            Div(153, 25);
+            HStack("", 1,
+                () => EnumGrid("Disable Attacks Of Opportunity", ref settings.noAttacksOfOpportunitySelection, AutoWidth()),
+                    () => EnumGrid("Can Move Through", ref settings.allowMovementThroughSelection, AutoWidth()),
+                    () => {
+                        Space(328); Label("This allows characters you control to move through the selected category of units during combat".green(), AutoWidth());
+                    }
 #if false
                 () => { UI.Slider("Collision Radius Multiplier", ref settings.collisionRadiusMultiplier, 0f, 2f, 1f, 1, "", UI.AutoWidth()); },
 #endif
                 );
-            UI.Div(0, 25);
-            UI.HStack("Class Specific", 1,
-                () => UI.Slider("Kineticist: Burn Reduction", ref settings.kineticistBurnReduction, 0, 30, 1, "", UI.AutoWidth()),
-                () => UI.Slider("Arcanist: Spell Slot Multiplier", ref settings.arcanistSpellslotMultiplier, 0.5f, 10f,
-                        1f, 1, "", UI.AutoWidth()),
+            Div(0, 25);
+            HStack("Class Specific", 1,
+                () => Slider("Kineticist: Burn Reduction", ref settings.kineticistBurnReduction, 0, 30, 1, "", AutoWidth()),
+                        () => Slider("Arcanist: Spell Slot Multiplier", ref settings.arcanistSpellslotMultiplier, 0.5f, 10f,
+                                1f, 1, "", AutoWidth()),
+                        () => {
+                            Space(25);
+                            Label("Please rest after adjusting to recalculate your spell slots.".green());
+                        },
+                        () => Toggle("Witch/Shaman: Cackling/Shanting Extends Hexes By 10 Min (Out Of Combat)", ref settings.toggleExtendHexes),
+                        () => Toggle("Allow Simultaneous Activatable Abilities (Like Judgements)", ref settings.toggleAllowAllActivatable),
+                        () => Toggle("Kineticist: Allow Gather Power Without Hands", ref settings.toggleKineticistGatherPower),
+                        () => Toggle("Barbarian: Auto Start Rage When Entering Combat", ref settings.toggleEnterCombatAutoRage),
+                        () => Toggle("Demon: Auto Start Rage When Entering Combat", ref settings.toggleEnterCombatAutoRageDemon),
+                        () => Toggle("Magus: Always Allow Spell Combat", ref settings.toggleAlwaysAllowSpellCombat),
+                        () => { }
+                        );
+            Div(0, 25);
+            HStack("Multipliers", 1,
+                () => LogSlider("Experience", ref settings.experienceMultiplier, 0f, 20, 1, 1, "", AutoWidth()),
+                () => LogSlider("Money Earned", ref settings.moneyMultiplier, 0f, 20, 1, 1, "", AutoWidth()),
+                () => LogSlider("Vendor Sell Price", ref settings.vendorSellPriceMultiplier, 0f, 20, 1, 1, "", AutoWidth()),
+                () => LogSlider("Vendor Buy Price", ref settings.vendorBuyPriceMultiplier, 0f, 20, 1, 1, "", AutoWidth()),
+                () => Slider("Increase Carry Capacity", ref settings.encumberanceMultiplier, 1, 100, 1, "", AutoWidth()),
+                () => Slider("Increase Carry Capacity (Party Only)", ref settings.encumberanceMultiplierPartyOnly, 1, 100, 1, "", AutoWidth()),
+                () => LogSlider("Spells Per Day", ref settings.spellsPerDayMultiplier, 0f, 20, 1, 1, "", AutoWidth()),
                 () => {
-                    UI.Space(25);
-                    UI.Label("Please rest after adjusting to recalculate your spell slots.".green());
-                },
-                () => UI.Toggle("Witch/Shaman: Cackling/Shanting Extends Hexes By 10 Min (Out Of Combat)", ref settings.toggleExtendHexes),
-                () => UI.Toggle("Allow Simultaneous Activatable Abilities (Like Judgements)", ref settings.toggleAllowAllActivatable),
-                () => UI.Toggle("Kineticist: Allow Gather Power Without Hands", ref settings.toggleKineticistGatherPower),
-                () => UI.Toggle("Barbarian: Auto Start Rage When Entering Combat", ref settings.toggleEnterCombatAutoRage),
-                () => UI.Toggle("Magus: Always Allow Spell Combat", ref settings.toggleAlwaysAllowSpellCombat),
-                () => { }
-                );
-            UI.Div(0, 25);
-            UI.HStack("Multipliers", 1,
-                () => UI.LogSlider("Experience", ref settings.experienceMultiplier, 0f, 20, 1, 1, "", UI.AutoWidth()),
-                () => UI.LogSlider("Money Earned", ref settings.moneyMultiplier, 0f, 20, 1, 1, "", UI.AutoWidth()),
-                () => UI.LogSlider("Vendor Sell Price", ref settings.vendorSellPriceMultiplier, 0f, 20, 1, 1, "", UI.AutoWidth()),
-                () => UI.LogSlider("Vendor Buy Price", ref settings.vendorBuyPriceMultiplier, 0f, 20, 1, 1, "", UI.AutoWidth()),
-                () => UI.Slider("Increase Carry Capacity", ref settings.encumberanceMultiplier, 1, 100, 1, "", UI.AutoWidth()),
-                () => UI.LogSlider("Spells Per Day", ref settings.spellsPerDayMultiplier, 0f, 20, 1, 1, "", UI.AutoWidth()),
-                () => {
-                    UI.LogSlider("Movement Speed", ref settings.partyMovementSpeedMultiplier, 0f, 20, 1, 1, "", UI.Width(600));
-                    UI.Space(25);
-                    UI.Toggle("Whole Team Moves Same Speed", ref settings.toggleMoveSpeedAsOne, 0);
-                    UI.Space(25);
-                    UI.Label("Adjusts the movement speed of your party in area maps".green());
-                },
-                () => {
-                    UI.LogSlider("Travel Speed", ref settings.travelSpeedMultiplier, 0f, 20, 1, 1, "", UI.Width(600));
-                    UI.Space(25);
-                    UI.Label("Adjusts the movement speed of your party on world maps".green());
+                    LogSlider("Movement Speed", ref settings.partyMovementSpeedMultiplier, 0f, 20, 1, 1, "", Width(600));
+                    Space(25);
+                    Toggle("Whole Team Moves Same Speed", ref settings.toggleMoveSpeedAsOne);
+                    Space(25);
+                    Label("Adjusts the movement speed of your party in area maps".green());
                 },
                 () => {
-                    UI.LogSlider("Game Time Scale", ref settings.timeScaleMultiplier, 0f, 20, 1, 2, "", UI.Width(600));
-                    UI.Space(25);
-                    UI.Label("Speeds up or slows down the entire game (movement, animation, everything)".green());
+                    LogSlider("Travel Speed", ref settings.travelSpeedMultiplier, 0f, 20, 1, 1, "", Width(600));
+                    Space(25);
+                    Label("Adjusts the movement speed of your party on world maps".green());
                 },
                 () => {
-                    UI.LogSlider("Companion Cost", ref settings.companionCostMultiplier, 0, 20, 1, 1, "", UI.Width(600));
-                    UI.Space(25);
-                    UI.Label("Adjusts costs of hiring mercenaries at the Pathfinder vendor".green());
+                    LogSlider("Companion Cost", ref settings.companionCostMultiplier, 0, 20, 1, 1, "", Width(600));
+                    Space(25);
+                    Label("Adjusts costs of hiring mercenaries at the Pathfinder vendor".green());
 
                 },
-                () => UI.LogSlider("Enemy HP Multiplier", ref settings.enemyBaseHitPointsMultiplier, 0.1f, 20, 1, 1, "", UI.AutoWidth()),
-                () => UI.LogSlider("Buff Duration", ref settings.buffDurationMultiplierValue, 0f, 999, 1, 1, "", UI.AutoWidth()),
-                () => UI.LogSlider("Field Of View", ref settings.fovMultiplier, 0.4f, 5.0f, 1, 2, "", UI.AutoWidth()),
-                () => UI.LogSlider("FoV (Cut Scenes)", ref settings.fovMultiplierCutScenes, 0.4f, 5.0f, 1, 2, "", UI.AutoWidth()),
+                () => LogSlider("Enemy HP Multiplier", ref settings.enemyBaseHitPointsMultiplier, 0.1f, 20, 1, 1, "", AutoWidth()),
+                () => LogSlider("Buff Duration", ref settings.buffDurationMultiplierValue, 0f, 9999, 1, 1, "", AutoWidth()),
                 () => { }
                 );
-            Game.Instance.TimeController.DebugTimeScale = settings.timeScaleMultiplier;
-            UI.Div(0, 25);
-            UI.HStack("Dice Rolls", 1,
-                () => UI.EnumGrid("All Attacks Hit", ref settings.allAttacksHit, 0, UI.AutoWidth()),
-                () => UI.EnumGrid("All Hits Critical", ref settings.allHitsCritical, 0, UI.AutoWidth()),
-                () => UI.EnumGrid("Roll With Avantage", ref settings.rollWithAdvantage, 0, UI.AutoWidth()),
-                () => UI.EnumGrid("Roll With Disavantage", ref settings.rollWithDisadvantage, 0, UI.AutoWidth()),
-                () => UI.EnumGrid("Always Roll 20", ref settings.alwaysRoll20, 0, UI.AutoWidth()),
-                () => UI.EnumGrid("Always Roll 1", ref settings.alwaysRoll1, 0, UI.AutoWidth()),
-                () => UI.EnumGrid("Never Roll 20", ref settings.neverRoll20, 0, UI.AutoWidth()),
-                () => UI.EnumGrid("Never Roll 1", ref settings.neverRoll1, 0, UI.AutoWidth()),
-                () => UI.EnumGrid("Always Roll 20 Initiative ", ref settings.roll20Initiative, 0, UI.AutoWidth()),
-                () => UI.EnumGrid("Always Roll 1 Initiative", ref settings.roll1Initiative, 0, UI.AutoWidth()),
-                () => UI.EnumGrid("Always Roll 20 Out Of Combat", ref settings.alwaysRoll20OutOfCombat, 0, UI.AutoWidth()),
+            Actions.ApplyTimeScale();
+            Div(0, 25);
+            HStack("Dice Rolls", 1,
+                () => EnumGrid("All Attacks Hit", ref settings.allAttacksHit, AutoWidth()),
+                () => EnumGrid("All Hits Critical", ref settings.allHitsCritical, AutoWidth()),
+                () => EnumGrid("Roll With Avantage", ref settings.rollWithAdvantage, AutoWidth()),
+                () => EnumGrid("Roll With Disavantage", ref settings.rollWithDisadvantage, AutoWidth()),
+                () => EnumGrid("Always Roll 20", ref settings.alwaysRoll20, AutoWidth()),
+                () => EnumGrid("Always Roll 1", ref settings.alwaysRoll1, AutoWidth()),
+                () => EnumGrid("Never Roll 20", ref settings.neverRoll20, AutoWidth()),
+                () => EnumGrid("Never Roll 1", ref settings.neverRoll1, AutoWidth()),
+                () => EnumGrid("Always Roll 20 Initiative ", ref settings.roll20Initiative, AutoWidth()),
+                () => EnumGrid("Always Roll 1 Initiative", ref settings.roll1Initiative, AutoWidth()),
+                () => EnumGrid("Always Roll 20 Out Of Combat", ref settings.alwaysRoll20OutOfCombat, AutoWidth()),
+                () => EnumGrid("Take 10 Out of Combat (Always)", ref settings.take10always, AutoWidth()),
+                () => EnumGrid("Take 10 Out of Combat (Minimum)", ref settings.take10minimum, AutoWidth()),
                 () => { }
                 );
-            UI.Div(0, 25);
-            UI.HStack("Summons", 1,
-                () => UI.Toggle("Make Controllable", ref settings.toggleMakeSummmonsControllable, 0),
+            Div(0, 25);
+            HStack("Summons", 1,
+                () => Toggle("Make Controllable", ref settings.toggleMakeSummmonsControllable),
                 () => {
-                    using (UI.VerticalScope()) {
-                        UI.Div(0, 25);
-                        using (UI.HorizontalScope()) {
-                            UI.Label("Primary".orange(), UI.AutoWidth()); UI.Space(215); UI.Label("good for party".green());
+                    using (VerticalScope()) {
+                        Div(0, 25);
+                        using (HorizontalScope()) {
+                            Label("Primary".orange(), AutoWidth()); Space(215); Label("good for party".green());
                         }
-                        UI.Space(25);
-                        UI.EnumGrid("Modify Summons For", ref settings.summonTweakTarget1, 0, UI.AutoWidth());
-                        UI.LogSlider("Duration Multiplier", ref settings.summonDurationMultiplier1, 0f, 20, 1, 2, "", UI.AutoWidth());
-                        UI.Slider("Level Increase/Decrease", ref settings.summonLevelModifier1, -20f, +20f, 0f, 0, "", UI.AutoWidth());
-                        UI.Div(0, 25);
-                        using (UI.HorizontalScope()) {
-                            UI.Label("Secondary".orange(), UI.AutoWidth()); UI.Space(215); UI.Label("good for larger group or to reduce enemies".green());
+                        Space(25);
+                        EnumGrid("Modify Summons For", ref settings.summonTweakTarget1, AutoWidth());
+                        LogSlider("Duration Multiplier", ref settings.summonDurationMultiplier1, 0f, 20, 1, 2, "", AutoWidth());
+                        Slider("Level Increase/Decrease", ref settings.summonLevelModifier1, -20f, +20f, 0f, 0, "", AutoWidth());
+                        Div(0, 25);
+                        using (HorizontalScope()) {
+                            Label("Secondary".orange(), AutoWidth()); Space(215); Label("good for larger group or to reduce enemies".green());
                         }
-                        UI.Space(25);
-                        UI.EnumGrid("Modify Summons For", ref settings.summonTweakTarget2, 0, UI.AutoWidth());
-                        UI.LogSlider("Duration Multiplier", ref settings.summonDurationMultiplier2, 0f, 20, 1, 2, "", UI.AutoWidth());
-                        UI.Slider("Level Increase/Decrease", ref settings.summonLevelModifier2, -20f, +20f, 0f, 0, "", UI.AutoWidth());
+                        Space(25);
+                        EnumGrid("Modify Summons For", ref settings.summonTweakTarget2, AutoWidth());
+                        LogSlider("Duration Multiplier", ref settings.summonDurationMultiplier2, 0f, 20, 1, 2, "", AutoWidth());
+                        Slider("Level Increase/Decrease", ref settings.summonLevelModifier2, -20f, +20f, 0f, 0, "", AutoWidth());
                     }
                 },
                 () => { }

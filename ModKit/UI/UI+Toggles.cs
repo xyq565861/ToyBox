@@ -13,111 +13,170 @@ namespace ModKit {
     public static partial class UI {
         public const string onMark = "<color=green><b>✔</b></color>";
         public const string offMark = "<color=#A0A0A0E0>✖</color>";
-        public static bool IsOn(this ToggleState state) { return state == ToggleState.On; }
-        public static bool IsOff(this ToggleState state) { return state == ToggleState.Off; }
+        public static bool IsOn(this ToggleState state) => state == ToggleState.On;
+        public static bool IsOff(this ToggleState state) => state == ToggleState.Off;
         public static ToggleState Flip(this ToggleState state) {
-            switch (state) {
-                case ToggleState.Off:
-                    return ToggleState.On;
-                case ToggleState.On:
-                    return ToggleState.Off;
-                case ToggleState.None:
-                    return ToggleState.None;
-            }
-            return ToggleState.None;
+            return state switch {
+                ToggleState.Off => ToggleState.On,
+                ToggleState.On => ToggleState.Off,
+                ToggleState.None => ToggleState.None,
+                _ => ToggleState.None,
+            };
         }
-
-        static bool TogglePrivate(
-                String title,
+        private static bool TogglePrivate(
+                string title,
                 ref bool value,
                 bool isEmpty,
                 bool disclosureStyle = false,
                 float width = 0,
                 params GUILayoutOption[] options
             ) {
-            bool changed = false;
+            options = options.AddDefaults();
+            var changed = false;
             if (width == 0 && !disclosureStyle) {
-                width  = UI.toggleStyle.CalcSize(new GUIContent(title.bold())).x + GUI.skin.box.CalcSize(Private.UI.CheckOn).x + 10;
+                width = toggleStyle.CalcSize(new GUIContent(title.bold())).x + GUI.skin.box.CalcSize(Private.UI.CheckOn).x + 10;
             }
-            options = options.AddItem(width == 0 ? UI.AutoWidth() : UI.Width(width)).ToArray();
+            options = options.AddItem(width == 0 ? AutoWidth() : Width(width)).ToArray();
             if (!disclosureStyle) {
                 title = value ? title.bold() : title.color(RGBA.medgrey).bold();
-                if (Private.UI.CheckBox(title, value, UI.toggleStyle, options)) { value = !value; changed = true; }
+                if (Private.UI.CheckBox(title, value, isEmpty, toggleStyle, options)) { value = !value; changed = true; }
             }
             else {
                 if (Private.UI.DisclosureToggle(title, value, isEmpty, options)) { value = !value; changed = true; }
             }
             return changed;
         }
-        public static void ToggleButton(ref ToggleState toggle, string title, GUIStyle style = null, params GUILayoutOption[] options) {
-            bool state = toggle.IsOn();
-            bool isEmpty = toggle == ToggleState.None;
-            if (UI.TogglePrivate(title, ref state, isEmpty, true, 0, options))
+        public static bool ToggleButton(ref ToggleState toggle, string title, GUIStyle style = null, params GUILayoutOption[] options) {
+            var isOn = toggle.IsOn();
+            var isEmpty = toggle == ToggleState.None;
+            var changed = false;
+            if (TogglePrivate(title, ref isOn, isEmpty, true, 0, options)) {
                 toggle = toggle.Flip();
-#if true
-
-#else
-            if (GUILayout.Button(GetToggleText(toggle, text), style ?? GUI.skin.button, options))
+                changed = true;
+            }
+            return changed;
+        }
+        public static bool ToggleButton(ref ToggleState toggle, string title, params GUILayoutOption[] options) {
+            var isOn = toggle.IsOn();
+            var isEmpty = toggle == ToggleState.None;
+            var changed = false;
+            if (TogglePrivate(title, ref isOn, isEmpty, true, 0, options)) {
                 toggle = toggle.Flip();
-#endif
+                changed = true;
+            }
+            return changed;
+        }
+        public static void ToggleButton(ref ToggleState toggle, string title, Action<ToggleState> applyToChildren, params GUILayoutOption[] options) {
+            var isOn = toggle.IsOn();
+            var isEmpty = toggle == ToggleState.None;
+            var state = toggle;
+            if (TogglePrivate("", ref isOn, isEmpty, true, 0, options))
+                state = state.Flip();
+            UI.Space(-10);
+            if (state == ToggleState.None)
+                UI.Space(35);
+            else {
+                var deepTitle = state switch {
+                    ToggleState.On => "≪",
+                    ToggleState.Off => "≫",
+                    _ => ""
+                };
+                UI.ActionButton(deepTitle, () => {
+                    state = state.Flip();
+                    applyToChildren(state);
+                }, toggleStyle, UI.Width(35));
+            }
+            UI.Label(title, toggleStyle);
+            toggle = state;
         }
 
-        public static bool Toggle(
-                String title,
-                ref bool value,
-                float width = 0,
-                params GUILayoutOption[] options) {
-            return TogglePrivate(title, ref value, false, false, width, options);
+        public static bool Toggle(string title, ref bool value, string on, string off, float width = 0, GUIStyle stateStyle = null, GUIStyle labelStyle = null, params GUILayoutOption[] options) {
+            var changed = false;
+            if (stateStyle == null)
+                stateStyle = GUI.skin.box;
+            if (labelStyle == null)
+                labelStyle = GUI.skin.box;
+            if (width == 0) {
+                width = toggleStyle.CalcSize(new GUIContent(title.bold())).x + GUI.skin.box.CalcSize(Private.UI.CheckOn).x + 10;
+            }
+            options = options.AddItem(width == 0 ? AutoWidth() : Width(width)).ToArray();
+            title = value ? title.bold() : title.color(RGBA.medgrey).bold();
+            if (Private.UI.Toggle(title, value, on, off, stateStyle, labelStyle, options)) { value = !value; changed = true; }
+            return changed;
         }
-
+        public static bool Toggle(string title, ref bool value, params GUILayoutOption[] options) {
+            options = options.AddDefaults();
+            var changed = false;
+            if (Private.UI.CheckBox(title, value, false, toggleStyle, options)) { value = !value; changed = true; }
+            return changed;
+        }
         public static bool ActionToggle(
-                String title,
+                string title,
                 Func<bool> get,
                 Action<bool> set,
                 float width = 0,
                 params GUILayoutOption[] options) {
-            bool value = get();
+            var value = get();
             if (TogglePrivate(title, ref value, false, false, width, options)) {
                 set(value);
             }
             return value;
         }
 
+        public static bool ActionToggle(
+                string title,
+                Func<bool> get,
+                Action<bool> set,
+                Func<bool> isEmpty,
+                float width = 0,
+                params GUILayoutOption[] options) {
+            var value = get();
+            var empty = isEmpty();
+            if (TogglePrivate(title, ref value, empty, false, width, options)) {
+                if (!empty)
+                    set(value);
+            }
+            return value;
+        }
         public static bool ToggleCallback(
-                String title,
+                string title,
                 ref bool value,
                 Action<bool> callback,
                 float width = 0,
                 params GUILayoutOption[] options) {
-            bool result = TogglePrivate(title, ref value, false, false, width, options);
+            var result = TogglePrivate(title, ref value, false, false, width, options);
             if (result) {
                 callback(value);
             }
 
             return result;
         }
-
         public static bool BitFieldToggle(
-                String title,
+                string title,
                 ref int bitfield,
                 int offset,
                 float width = 0,
                 params GUILayoutOption[] options
             ) {
-            bool bit = ((1 << offset) & bitfield) != 0;
-            bool newBit = bit;
+            var bit = ((1 << offset) & bitfield) != 0;
+            var newBit = bit;
             TogglePrivate(title, ref newBit, false, false, width, options);
             if (bit != newBit) { bitfield ^= 1 << offset; }
             return bit != newBit;
         }
-        public static bool DisclosureToggle(String title, ref bool value, float width = 175, params Action[] actions) {
-            bool changed = UI.TogglePrivate(title, ref value, false, true, width);
-            UI.If(value, actions);
+        public static bool DisclosureToggle(string title, ref bool value, float width = 175, params Action[] actions) {
+            var changed = TogglePrivate(title, ref value, false, true, width);
+            If(value, actions);
             return changed;
         }
-        public static bool DisclosureBitFieldToggle(String title, ref int bitfield, int offset, bool exclusive = true, float width = 175, params Action[] actions) {
-            bool bit = ((1 << offset) & bitfield) != 0;
-            bool newBit = bit;
+        public static bool DisclosureToggle(string title, ref bool value, params Action[] actions) {
+            var changed = TogglePrivate(title, ref value, false, true, 175);
+            If(value, actions);
+            return changed;
+        }
+        public static bool DisclosureBitFieldToggle(string title, ref int bitfield, int offset, bool exclusive = true, float width = 175, params Action[] actions) {
+            var bit = ((1 << offset) & bitfield) != 0;
+            var newBit = bit;
             TogglePrivate(title, ref newBit, false, true, width);
             if (bit != newBit) {
                 if (exclusive) {
@@ -127,9 +186,8 @@ namespace ModKit {
                     bitfield ^= (1 << offset);
                 }
             }
-            UI.If(newBit, actions);
+            If(newBit, actions);
             return bit != newBit;
         }
-
     }
 }

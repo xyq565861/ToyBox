@@ -11,13 +11,15 @@ using Kingmaker.EntitySystem.Entities;
 using UnityModManager = UnityModManagerNet.UnityModManager;
 
 namespace ToyBox.BagOfPatches {
-    static class Selectors {
+    internal static class Selectors {
         public static Settings settings = Main.settings;
-        public static UnityModManager.ModEntry.ModLogger modLogger = ModKit.Logger.modLogger;
         public static Player player = Game.Instance.Player;
         [HarmonyPatch(typeof(UnitCombatState), "AttackOfOpportunity")]
-        static class UnitCombatState_AttackOfOpportunity_Patch {
-            static bool Prefix(UnitEntityData target) {
+        private static class UnitCombatState_AttackOfOpportunity_Patch {
+            private static bool Prefix(UnitEntityData target) {
+                if (settings.toggleAttacksofOpportunity && target.IsPlayerFaction) {
+                    return false;
+                }
                 if (UnitEntityDataUtils.CheckUnitEntityData(target, settings.noAttacksOfOpportunitySelection)) {
                     return false;
                 }

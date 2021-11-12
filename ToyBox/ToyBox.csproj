@@ -12,7 +12,7 @@
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>false</Deterministic>
-    <LangVersion>8</LangVersion>
+    <LangVersion>9</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -23,7 +23,7 @@
     <ErrorReport>none</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <PlatformTarget>AnyCPU</PlatformTarget>
+    <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -38,6 +38,7 @@
     <ItemGroup>
       <PubliciseInputAssemblies Include="$(WrathPath)\Wrath_Data\Managed\Assembly-CSharp.dll" />
       <PubliciseInputAssemblies Include="$(WrathPath)\Wrath_Data\Managed\Owlcat.Runtime.UI.dll" />
+      <PubliciseInputAssemblies Include="$(WrathPath)\Wrath_Data\Managed\UnityModManager\UnityModManager.dll" />
     </ItemGroup>
     <Publicise InputAssemblies="@(PubliciseInputAssemblies)" OutputPath="$(SolutionDir)lib/" PubliciseCompilerGenerated="true" />
   </Target>
@@ -55,6 +56,10 @@
       <HintPath>$(WrathPath)\Wrath_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="DOTween">
+      <HintPath>$(WrathPath)\Wrath_Data\Managed\DOTween.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Microsoft.Build.Framework" />
     <Reference Include="Microsoft.Build.Utilities.v4.0" />
     <Reference Include="Newtonsoft.Json">
@@ -63,6 +68,10 @@
     </Reference>
     <Reference Include="Owlcat.Runtime.Core">
       <HintPath>$(WrathPath)\Wrath_Data\Managed\Owlcat.Runtime.Core.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Owlcat.Runtime.UniRx">
+      <HintPath>$(WrathPath)\Wrath_Data\Managed\Owlcat.Runtime.UniRx.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Owlcat.Runtime.UI_public">
@@ -75,6 +84,12 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Web">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System.Web.Services">
+      <Private>False</Private>
+    </Reference>
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -115,9 +130,11 @@
     </Reference>
     <Reference Include="UnityEngine.Physics2DModule">
       <HintPath>$(WrathPath)\Wrath_Data\Managed\UnityEngine.Physics2DModule.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.PhysicsModule">
       <HintPath>$(WrathPath)\Wrath_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.TextRenderingModule">
       <HintPath>$(WrathPath)\Wrath_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
@@ -131,12 +148,15 @@
       <HintPath>$(WrathPath)\Wrath_Data\Managed\UnityEngine.UIModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="UnityModManager">
-      <HintPath>$(WrathPath)\Wrath_Data\Managed\UnityModManager\UnityModManager.dll</HintPath>
+    <Reference Include="UnityModManager_public">
+      <HintPath>..\lib\UnityModManager_public.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="classes\CustomEnchantmentStackingFix.cs" />
+    <Compile Include="classes\Infrastructure\Borrowed\SmartConsole.cs" />
+    <Compile Include="classes\Infrastructure\Cheats.cs" />
     <Compile Include="classes\Infrastructure\HumanFriendly.cs" />
     <Compile Include="classes\Infrastructure\Borrowed\StateReplacer.cs" />
     <Compile Include="classes\Infrastructure\CasterHelpers.cs" />
@@ -146,35 +166,46 @@
     <Compile Include="classes\Infrastructure\Utils.cs" />
     <Compile Include="classes\Infrastructure\WrathExtensions.cs" />
     <Compile Include="classes\Infrastructure\BlueprintExtensions.cs" />
+    <Compile Include="classes\MainUI\Browser\EditorActions.cs" />
+    <Compile Include="classes\MainUI\Browser\Editor.cs" />
+    <Compile Include="classes\MainUI\ArmiesEditor.cs" />
     <Compile Include="classes\MainUI\CrusadeEditor.cs" />
     <Compile Include="classes\MainUI\EnchantmentEditor.cs" />
+    <Compile Include="classes\MainUI\Etudes\EtudeChildrenDrawer.cs" />
+    <Compile Include="classes\MainUI\Etudes\EtudeInfo.cs" />
+    <Compile Include="classes\MainUI\Etudes\EtudesEditor.cs" />
+    <Compile Include="classes\MainUI\Etudes\EtudeTreeModel.cs" />
+    <Compile Include="classes\MainUI\Etudes\ReferenceGraph.cs" />
     <Compile Include="classes\MainUI\FeaturesTreeEditor.cs" />
     <Compile Include="classes\MainUI\PhatLoot.cs" />
     <Compile Include="classes\MainUI\MulticlassPicker.cs" />
     <Compile Include="classes\MainUI\LevelUp.cs" />
-    <Compile Include="classes\MainUI\BlueprintAction.cs" />
+    <Compile Include="classes\MainUI\Browser\BlueprintAction.cs" />
     <Compile Include="classes\Infrastructure\Borrowed\Accessors.cs" />
     <Compile Include="classes\Infrastructure\Borrowed\PartyUtils.cs" />
     <Compile Include="classes\Infrastructure\UnitEntityDataUtils.cs" />
     <Compile Include="classes\MainUI\Actions.cs" />
-    <Compile Include="classes\MainUI\BlueprintListUI.cs" />
+    <Compile Include="classes\MainUI\Browser\BlueprintListUI.cs" />
     <Compile Include="classes\MainUI\BlueprintLoader.cs" />
     <Compile Include="classes\MainUI\ActionButtons.cs" />
-    <Compile Include="classes\MainUI\FactsEditor.cs" />
+    <Compile Include="classes\MainUI\Browser\FactsEditor.cs" />
     <Compile Include="classes\MainUI\Main.cs" />
-    <Compile Include="classes\MainUI\BlueprintBrowser.cs" />
+    <Compile Include="classes\MainUI\Browser\BlueprintBrowser.cs" />
     <Compile Include="classes\MainUI\BagOfTricks.cs" />
     <Compile Include="classes\MainUI\CharacterPicker.cs" />
     <Compile Include="classes\MainUI\QuestEditor.cs" />
     <Compile Include="classes\MainUI\PartyEditor.cs" />
     <Compile Include="classes\Infrastructure\RespecHelper.cs" />
-    <Compile Include="classes\Models\Setings+Multiclass.cs" />
+    <Compile Include="classes\Models\Settings+Multiclass.cs" />
+    <Compile Include="classes\Models\Settings+UI.cs" />
+    <Compile Include="classes\MonkeyPatchin\BagOfPatches\Romance.cs" />
     <Compile Include="classes\MonkeyPatchin\BagOfPatches\Alignment.cs" />
     <Compile Include="classes\MonkeyPatchin\BagOfPatches\Combat\Actions.cs" />
     <Compile Include="classes\MonkeyPatchin\BagOfPatches\Combat\NoFriendlyFire.cs" />
     <Compile Include="classes\MonkeyPatchin\BagOfPatches\Crusade.cs" />
+    <Compile Include="classes\MonkeyPatchin\BagOfPatches\Development.cs" />
     <Compile Include="classes\MonkeyPatchin\BagOfPatches\DiceRolls.cs" />
-    <Compile Include="classes\MonkeyPatchin\BagOfPatches\LevelUp.cs" />
+    <Compile Include="classes\MonkeyPatchin\BagOfPatches\LevelUpPatches.cs" />
     <Compile Include="classes\MonkeyPatchin\BagOfPatches\Limits\Infinites.cs" />
     <Compile Include="classes\MonkeyPatchin\BagOfPatches\Limits\Metamagic.cs" />
     <Compile Include="classes\MonkeyPatchin\BagOfPatches\Limits\Unrestricted.cs" />
@@ -186,12 +217,14 @@
     <Compile Include="classes\MonkeyPatchin\BagOfPatches\Selectors.cs" />
     <Compile Include="classes\MonkeyPatchin\BagOfPatches\Summons.cs" />
     <Compile Include="classes\MonkeyPatchin\BagOfPatches\Tweaks.cs" />
+    <Compile Include="classes\MonkeyPatchin\BagOfPatches\ActionBar.cs" />
     <Compile Include="classes\MonkeyPatchin\BagOfPatches\zToDo.cs" />
+    <Compile Include="classes\MonkeyPatchin\BagOfPatches\Dialog.cs" />
     <Compile Include="classes\MonkeyPatchin\HighlightObjectToggle.cs" />
     <Compile Include="classes\MonkeyPatchin\ModUI.cs" />
     <Compile Include="classes\MonkeyPatchin\MoveThroughOthers.cs" />
-    <Compile Include="classes\MonkeyPatchin\Multiclass\General.cs" />
-    <Compile Include="classes\MonkeyPatchin\Multiclass\Mod.cs" />
+    <Compile Include="classes\MonkeyPatchin\Multiclass\LevelUP+Multiclass.cs" />
+    <Compile Include="classes\MonkeyPatchin\Multiclass\MulticlassMod.cs" />
     <Compile Include="classes\MonkeyPatchin\Multiclass\MultipleClasses.cs" />
     <Compile Include="classes\MonkeyPatchin\Multiclass\StatProgression\HP.cs" />
     <Compile Include="classes\MonkeyPatchin\Multiclass\StatProgression\SavesBAB.cs" />
@@ -200,6 +233,7 @@
     <Compile Include="classes\MonkeyPatchin\PartyView.cs" />
     <Compile Include="classes\MonkeyPatchin\PreviewManager.cs" />
     <Compile Include="classes\MonkeyPatchin\PreviewUtilities.cs" />
+    <Compile Include="GlobalSuppressions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="classes\Models\Settings.cs" />
   </ItemGroup>
@@ -214,10 +248,13 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="zmisc\Snippets.cs" />
+    <Compile Include="classes\MainUI\Playground.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="README.txt" />
+    <None Include="ReadMe.md" />
+    <Content Include="Localization\etude-comments.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="zmisc\api.txt" />
     <None Include="zip-hash-sign.ps1" />
   </ItemGroup>
@@ -228,6 +265,9 @@
     <PostBuildEvent>echo "$(TargetPath)" "&gt;$(WrathPath)\Mods\0$(ProjectName)0\$(ProjectName).dll*"
             xcopy /Y "$(TargetPath)" "$(WrathPath)\Mods\0$(ProjectName)0\$(ProjectName).dll*"
             xcopy /Y "$(TargetDir)$(TargetName).pdb" "$(WrathPath)\Mods\0$(ProjectName)0\$(ProjectName).pdb*"
+            xcopy /Y "$(ProjectDir)\Info.json" "$(WrathPath)\Mods\0$(ProjectName)0\Info.json"
+            xcopy /Y "$(ProjectDir)\Repository.json" "$(WrathPath)\Mods\0$(ProjectName)0\Repository.json"
+            xcopy /E /Y "$(ProjectDir)\Localization\" "$(WrathPath)\Mods\0$(ProjectName)0\Localization\"
             cd "$(TargetDir)"
             powershell.exe -ExecutionPolicy Unrestricted -f "$(ProjectDir)zip-hash-sign.ps1"
 </PostBuildEvent>

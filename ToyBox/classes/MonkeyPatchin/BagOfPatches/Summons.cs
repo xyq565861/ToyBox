@@ -17,26 +17,44 @@ using Kingmaker.UI.ActionBar;
 using TurnBased.Controllers;
 using UnityEngine;
 using UnityModManager = UnityModManagerNet.UnityModManager;
+using ModKit;
+using Kingmaker.View;
 
 namespace ToyBox.BagOfPatches {
-    static class Summons {
+    internal static class Summons {
         public static Settings settings = Main.settings;
-        public static UnityModManager.ModEntry.ModLogger modLogger = ModKit.Logger.modLogger;
         public static Player player = Game.Instance.Player;
+        private static bool SummonedByPlayerFaction = false;
 
-
-        static bool SummonedByPlayerFaction = false;
+        [HarmonyPatch(typeof(Player), "MoveCharacters")]
+        private static class Player_MoveCharacters_Patch {
+            private static void Postfix() {
+                if (settings.toggleMakeSummmonsControllable) {
+                    foreach (var unit in Game.Instance.Player.Group) {
+                        if (unit.IsSummoned()) {
+                            var view = unit.View;
+                            if (view != null) {
+                                view.StopMoving();
+                            }
+                            unit.Position = Game.Instance.Player.MainCharacter.Value.Position;
+                            unit.DesiredOrientation = Game.Instance.Player.MainCharacter.Value.Orientation;
+                        }
+                    }
+                }
+            }
+        }
 
         [HarmonyPatch(typeof(SummonPool), "Register")]
-        static class SummonPool_Register_Patch {
-            static void Postfix(ref UnitEntityData unit) {
+        private static class SummonPool_Register_Patch {
+            private static void Postfix(ref UnitEntityData unit) {
                 //if (settings.toggleSetSpeedOnSummon) {
                 //    unit.Descriptor.Stats.GetStat(StatType.Speed).BaseValue = settings.setSpeedOnSummonValue;
                 //}
 
                 if (settings.toggleMakeSummmonsControllable && SummonedByPlayerFaction) {
-                    // modLogger.Log($"SummonPool.Register: Unit [{unit.CharacterName}] [{unit.UniqueId}]");
+                    // Main.Log($"SummonPool.Register: Unit [{unit.CharacterName}] [{unit.UniqueId}]");
                     UnitEntityDataUtils.Charm(unit);
+                    //unit.Ensure<UnitPartFollowUnit>().Init(Game.Instance.Player.MainCharacter.Value, true, false);
 #if false
                     if (unit.Blueprint.AssetGuid == "6fdf7a3f850a1eb48bfbf44d9d0f45dd" && StringUtils.ToToggleBool(settings.toggleDisableWarpaintedSkullAbilityForSummonedBarbarians)) // WarpaintedSkullSummonedBarbarians
                     {
@@ -59,16 +77,16 @@ namespace ToyBox.BagOfPatches {
             }
         }
 
-        [HarmonyPatch(typeof(RuleSummonUnit), MethodType.Constructor, new Type[] { 
-            typeof(UnitEntityData), 
-            typeof(BlueprintUnit), 
-            typeof(Vector3), 
-            typeof(Rounds), 
+        [HarmonyPatch(typeof(RuleSummonUnit), MethodType.Constructor, new Type[] {
+            typeof(UnitEntityData),
+            typeof(BlueprintUnit),
+            typeof(Vector3),
+            typeof(Rounds),
             typeof(int) }
         )]
         public static class RuleSummonUnit_Constructor_Patch {
             public static void Prefix(UnitEntityData initiator, BlueprintUnit blueprint, Vector3 position, ref Rounds duration, ref int level, RuleSummonUnit __instance) {
-                modLogger.Log($"old duration: {duration} level: {level} \n mult: {settings.summonDurationMultiplier1} levelInc: {settings.summonLevelModifier1}\n initiatior: {initiator} tweakTarget: {settings.summonTweakTarget1} shouldTweak: {UnitEntityDataUtils.CheckUnitEntityData(initiator, settings.summonTweakTarget1)}");
+                Mod.Debug($"old duration: {duration} level: {level} \n mult: {settings.summonDurationMultiplier1} levelInc: {settings.summonLevelModifier1}\n initiatior: {initiator} tweakTarget: {settings.summonTweakTarget1} shouldTweak: {UnitEntityDataUtils.CheckUnitEntityData(initiator, settings.summonTweakTarget1)}");
                 if (UnitEntityDataUtils.CheckUnitEntityData(initiator, settings.summonTweakTarget1)) {
                     if (settings.summonDurationMultiplier1 != 1) {
                         duration = new Rounds(Convert.ToInt32(duration.Value * settings.summonDurationMultiplier1));
@@ -85,12 +103,12 @@ namespace ToyBox.BagOfPatches {
                         level = Math.Max(0, Math.Min(level + (int)settings.summonLevelModifier1, 20));
                     }
                 }
-                modLogger.Log($"new duration: {duration} level: {level}");
+                Mod.Debug($"new duration: {duration} level: {level}");
 
                 if (settings.toggleMakeSummmonsControllable) {
                     SummonedByPlayerFaction = initiator.IsPlayerFaction;
                 }
-                modLogger.Log("Initiator: " + initiator.CharacterName + $"(PlayerFaction : {initiator.IsPlayerFaction})" + "\nBlueprint: " + blueprint.CharacterName  + "\nDuration: " + duration.Value);
+                Mod.Debug("Initiator: " + initiator.CharacterName + $"(PlayerFaction : {initiator.IsPlayerFaction})" + "\nBlueprint: " + blueprint.CharacterName + "\nDuration: " + duration.Value);
             }
         }
 
